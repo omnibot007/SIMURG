@@ -37,6 +37,21 @@ def test_progress_resets_stall():
     assert v.state == "clean"
 
 
+def test_consecutive_sentences_fire():
+    from simurg.agent_loop import TextLoopTracker
+    t = TextLoopTracker()
+    t.note("The Margherita pizza costs ten whole dollars today. " * 3)
+    assert t.verdict().state == "corrupt"
+
+
+def test_varied_sentences_stay_clean():
+    from simurg.agent_loop import TextLoopTracker
+    t = TextLoopTracker()
+    t.note("The Margherita costs ten dollars today. The Pepperoni costs twelve dollars today. "
+           "The cart total updates after each click on the checkout button.")
+    assert t.verdict().state == "clean"
+
+
 def test_telemetry_roundtrip_and_summary(tmp_path):
     p = os.path.join(str(tmp_path), "guard.jsonl")
     telemetry.log_attempt(p, {"model": "flash", "verdict": "clean", "latency_s": 1.0})

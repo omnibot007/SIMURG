@@ -40,6 +40,26 @@ endpoints put in front of the model. All new files; zero stock files touched.
   `ok: True, verdict: clean`; forced-primary-death → fallback rescue
   `recovered: True`. Full receipts in the fam-browser lineage file.
 
+## HELL WEEK results (redteam harness, this box)
+
+`examples/hellweek.py` pits stock vs calibrated weights across four evasion
+trials, production shape (host trackers OR'd in). Final table:
+
+| trial | stock | fam | note |
+|---|---|---|---|
+| slow_burn (spaced loops) | 1.0 | 1.0 | stock Simurg alone: 0.0 — TextLoopTracker carries it; catch is END-verdict (retry trigger, not mid-stream abort) |
+| mixed_drink (buried block) | 0.833 | 1.0 | fam beats stock via 8-gram phrase rule |
+| short_con (onset sweep) | 1.0 | 1.0 | hold-window guarantee holds both |
+| code_rot | 1.0 | 1.0 | fam needed the burst vote first (regression caught + fixed) |
+| cleans | 0.0 | 0.0 | FPR (abort-worthy only; SUSPECT band stays non-blocking) |
+
+Full-corpus defended FPR: 45/890 = 0.051 (stock detectors alone: 27/890).
+Documented tradeoff: the evasions stock misses entirely (0.0) cost ~2 points
+of abort rate, concentrated in 10KB+ docs. Knobs: loop_threshold (6),
+phrase_threshold (12), min_line_len (40). Design laws learned: max-count
+rules MUST cap corroboration-only (clean p99 hits 1.0); SUSPECT never aborts
+mid-stream (production ladder passes it); runner metrics count CORRUPT only.
+
 ## Offered, not taken
 
 - CI split markers for the slow dashboard e2e (full suite hangs here) —
