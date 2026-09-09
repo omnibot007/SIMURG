@@ -1,13 +1,15 @@
-# Harvest a clean-output corpus from Claude Code session transcripts.
+# Harvest a clean-output corpus from Claude Code session transcripts AND/OR
+# markdown vaults (skills, missions, ledgers, synced docs).
 #
-# Your coding sessions are a gold mine of YOUR model's real output distribution:
-# code, plans, explanations, terse acks. This script extracts assistant TEXT
-# (never tool calls, never thinking blocks), scrubs anything smelling like a
-# secret (dropped entirely, never redacted-in-place), dedupes, and writes the
-# jsonl corpus that `evaluate --save` calibrates on:
+# Modes by file extension while walking the source tree:
+#   .jsonl → Claude Code transcripts (assistant TEXT blocks only — never tool
+#            calls, never thinking blocks)
+#   .md    → whole file as one text (skills, plans, ledger lessons)
+# Skipped always: binaries, *.bak*, .reg/.bcd hives, junk dirs, secrets
+# (secret-shaped texts are dropped entirely, never redacted-in-place).
 #
-#   python examples/harvest_sessions.py ~/.claude/projects ./corpus.jsonl
-#   SIMURG_CORPUS_JSONL=./corpus.jsonl python -m simurg.data.evaluate --save
+#   python examples/harvest_sessions.py <src-dir> <corpus.jsonl>
+#   SIMURG_CORPUS_JSONL=<corpus.jsonl> python -m simurg.data.evaluate --save
 #
 # Honesty note: session outputs include mistakes the operator later corrected.
 # This corpus is DOMAIN-representative, not verified-clean. Keep a small
@@ -53,14 +55,35 @@ def iter_texts(path):
                     yield t
 
 
-def harvest(src_dir, dst_path, min_chars=300, max_chars=8000, max_texts=3000):
-    seen, kept, dropped = set(), 0, {"short": 0, "long": 0, "secret": 0, "dupe": 0}
+SKIP_DIRS = {".git", "__pycache__", "node_modules", ".venv", "dist", "build"}
+SKIP_SUBSTR = (".bak",)
+SKIP_EXT = {".reg", ".bcd", ".exe", ".dll", ".png", ".jpg", ".pyc", ".json"}
+
+
+def iter_md(path):
+    with open(path, encoding="utf-8", errors="ignore") as fh:
+        t = fh.read().strip()
+    if t:
+        yield t
+
+
+def harvest(src_dir, dst_path, min_chars=300, max_chars=60000, max_texts=5000):
+    seen, kept, dropped = set(), 0, {"short": 0, "long": 0, "secret": 0, "dupe": 0, "skipped": 0}
     with open(dst_path, "w", encoding="utf-8") as out:
-        for root, _, files in os.walk(src_dir):
+        for root, dirs, files in os.walk(src_dir):
+            dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
             for fn in sorted(files):
-                if not fn.endswith(".jsonl"):
+                low = fn.lower()
+                if any(s in low for s in SKIP_SUBSTR):
+                    dropped["skipped"] += 1
                     continue
-                for t in iter_texts(os.path.join(root, fn)):
+                if low.endswith(".jsonl"):
+                    gen = iter_texts(os.path.join(root, fn))
+                elif low.endswith(".md") and not any(low.endswith(e) for e in SKIP_EXT):
+                    gen = iter_md(os.path.join(root, fn))
+                else:
+                    continue
+                for t in gen:
                     s = t.strip()
                     if len(s) < min_chars:
                         dropped["short"] += 1
